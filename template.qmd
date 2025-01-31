@@ -1,8 +1,14 @@
 ---
-title: "Untitled"
-format: html
+title: "PCA Lab"
+author: "Olivia Ross"
+format: 
+  html:
+    embed-resources: true
+    code-fold: true
 execute:
   eval: false
+  message: false
+  warning: false
 ---
 
 
@@ -29,28 +35,43 @@ Load in the data using `read_csv`. Perform some exploratory analysis on the data
 
 
 ```{r}
+# reading in the data 
+grazing_raw <- read_csv(here("data", "grazing_env.csv"))
+hdi_raw <- read_csv(here("data", "hdi_clean.csv"))
 
 ```
 
+What we need to do before running the PCA: 
+- what we pass through has to be numeric
+- need to drop NA's
 
+# Data exploration 
+```{r}
+hdi_long <- hdi_raw |>
+  pivot_longer(names_to="name", values_to="value", where(is.numeric))
+
+ggplot(hdi_long, aes(x=value)) +
+  geom_histogram() +
+  facet_wrap(~name, scales="free_x")
+
+hdi_data <- hdi_raw |>
+  drop_na() |>
+  mutate(gnipc_2021=log(gnipc_2021)) |>
+  mutate(hdicode=factor(hdicode, levels=c("Low","Medium", "High", "Very High")))
+  
+```
 
 Run the pca using the `prcomp` function. What extra argument do we need to include? Make sure to select only the numeric columns for the pca
 
 ```{r}
 hdi_pca <- hdi_data %>% 
-  select(...) %>%
-  prcomp(...  )
+  select(where(is.numeric)) %>%
+  prcomp(scale=TRUE)
+
+print(hdi_pca)
+summary(hdi_pca)
 ```
-
-
 Examine the structure of the hdi_pca object. What do you think each piece means? Use documentation to help you understand the output.
-
-
-
-
-
-
-
 
 
 ``` {r}
@@ -60,24 +81,33 @@ hdi_pca$rotation
 
 What can we say about the contributions of these variables to PC1, PC2, and PC3?
 
+PC1 explains 71.45% of the variation in our outcome variable, PC2 explains 9.6% of the outcome variable, 
+and PC3 explains 7.8% of the outcome variable. Together, they explain 88.9% of the variation in the outcome 
+variable.
+
 ## Scree Plots
 
 Let's make the screeplot by hand. First, what is the variable of interest on the y-axis and x-axis in a screeplot? How do we extract this information from the PCA object?
 
-Create a dataframe with the necessary indgreidents to make a screeplot. One piece that may not be immediately obvious is provided to get you started. We'll need to keep track of which PC is which, `colnames(hdi_pca$rotation)` will give you the order of the PCs.
+Create a dataframe with the necessary ingredidents to make a screeplot. One piece that may not be immediately obvious is provided to get you started. We'll need to keep track of which PC is which, `colnames(hdi_pca$rotation)` will give you the order of the PCs.
 
 ```{r}
 pc_names <- colnames(hdi_pca$rotation)
 
+sd_vec <- hdi_pca$sdev
+var_vec <- sd_vec^2
+pct_v <- var_vec/sum(var_vec)
+
 # Use this data frame to make the screeplot
 pct_expl_df <- data.frame(pc=pc_names,
-                          
-  
-  
-)
+                          pct=pct_v,
+                          v=var_vec)
 
 # Screeplot
-
+ggplot(pct_expl_df, aes(x=pc,y=pct, fill=pc)) +
+  geom_col() +
+  scale_y_continuous(labels=scales::percent, expand=(c(0,0))) +
+  labs(x="principal component", y="variance explained")
 
 
 ```
@@ -90,7 +120,6 @@ We can use ggfortify to create a screeplot as well.  This is a bit more automate
 screeplot(hdi_pca, type = "lines")
 screeplot(hdi_pca, type = "barplot")
 ```
-
 ## ggfortify autoplots
 
 Autoplot can take a PCA object the original dataframe, and plot the observations in the new PC space.  It can also plot the loadings of the variables. Run the code chunk first to see the biplot of HDI data.
@@ -114,6 +143,6 @@ autoplot(hdi_pca,
 
 # It's not perfect, but it's enough for now...
 ```
-
+Interpretation: gender inequality index and inequality in life expectancy are highly correlated 
 
 Complete the postlab exercise on your own. The data is stored in the data folder called `grazing_env.csv`.  The data is from a study on the effects of grazing on soil properties.  
